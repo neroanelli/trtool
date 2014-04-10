@@ -21,3 +21,11 @@ Socket data transport tool
 * 1: listen on PORT1 and connect to HOST2:PORT2
 * 2: listen on PORT1 and PORT2
 * 3: connect to HOST1:PORT1 and HOST2:PORT2
+* 
+简单的例子，加入外网主机IP为1.2.3.4，某内网主机开了22.
+
+1.外网主机  lcx -m 2 -p1 10001  -p2 10002
+
+2.内网主机  lcx  -m 3 -h1 1.2.3.4 -p1 10001 -h2 127.0.0.1 -p2 22
+
+3.在任何有网的地方包括自己主机都可以用`ssh`连接 1.2.3.4:10002即可以访问内网主机的22端口。
