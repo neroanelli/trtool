@@ -2,7 +2,7 @@ trtool
 ======
 
 Socket data transport tool
-/* Socket data transport tool
+
 * by bkbll(bkbll@cnhonker.net)
 * [bkbll@mobile socket]$ uname -a
 * Linux mobile 2.4.18-14 #1 Wed Sep 4 13:35:50 EDT 2002 i686 i686 i386 GNU/Linux
