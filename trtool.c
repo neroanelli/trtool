@@ -55,7 +55,7 @@ int client_connect(int sockfd,char* server,int port);
 extern int errno;
 FILE *fp;
 
-main(int argc,char **argv)
+int main(int argc,char **argv)
 {
     char **p;
     char host1[HOSTLEN],host2[HOSTLEN];
@@ -189,6 +189,7 @@ main(int argc,char **argv)
         usage(argv[0]);
     }
     closeallfd(0);
+    return 0;
 }
 
 int testifisvalue(char *str)
@@ -452,16 +453,12 @@ void transdata(int fd1,int fd2)
 
     timeset.tv_sec=TIMEOUT;
     timeset.tv_usec=0;
+    FD_ZERO(&readfd);
+    FD_ZERO(&writefd);
     while(1)
     {
-        FD_ZERO(&readfd);
-        FD_ZERO(&writefd);
-
         FD_SET(fd1,&readfd);
-        FD_SET(fd1,&writefd);
-        FD_SET(fd2,&writefd);
         FD_SET(fd2,&readfd);
-
         result=select(maxfd,&readfd,&writefd,NULL,&timeset);
         if((result<0) && (errno!=EINTR))
         {
@@ -473,72 +470,7 @@ void transdata(int fd1,int fd2)
             printf("time out\n");
             break;
         }
-        if(FD_ISSET(fd1,&readfd))
-        {
-            /* 不能超过MAXSIZE-totalread1,不然send_out1会溢出 */
-            if(totalread1<MAXSIZE)
-            {
-                read1=read(fd1,read_in1,MAXSIZE-totalread1);
-                if(read1==0) break;
-                if((read1<0) && (errno!=EINTR))
-                {
-                    perror("read data error");
-                    break;
-                }
-                memcpy(send_out1+totalread1,read_in1,read1);
-                makelog(tmpbuf1,strlen(tmpbuf1));
-                makelog(read_in1,read1);
-                totalread1+=read1;
-                memset(read_in1,0,MAXSIZE);
-            }
-        }
-        if(FD_ISSET(fd2,&writefd))
-        {
-            int err=0;
-            sendcount1=0;
-            while(totalread1>0)
-            {
-                send1=write(fd2,send_out1+sendcount1,totalread1);
-                if(send1==0)break;
-                if((send1<0) && (errno!=EINTR))
-                {
-                    perror("unknow error");
-                    err=1;
-                    break;
-                }
-                if((send1<0) && (errno==ENOSPC)) break;
-                sendcount1+=send1;
-                totalread1-=send1;
-            }
-            if(err==1) break;
-            if((totalread1>0) && (sendcount1>0))
-            {
-                /* 移动未发送完的数据到开始 */
-                memcpy(send_out1,send_out1+sendcount1,totalread1);
-                memset(send_out1+totalread1,0,MAXSIZE-totalread1);
-            }
-            else
-                memset(send_out1,0,MAXSIZE);
-        }
-        if(FD_ISSET(fd2,&readfd))
-        {
 
-            if(totalread2<MAXSIZE)
-            {
-                read2=read(fd2,read_in2,MAXSIZE-totalread2);
-                if(read2==0)break;
-                if((read2<0) && (errno!=EINTR))
-                {
-                    perror("read data error");
-                    break;
-                }
-                memcpy(send_out2+totalread2,read_in2,read2);
-                makelog(tmpbuf2,strlen(tmpbuf2));
-                makelog(read_in2,read2);
-                totalread2+=read2;
-                memset(read_in2,0,MAXSIZE);
-            }
-        }
         if(FD_ISSET(fd1,&writefd))
         {
             int err2=0;
@@ -565,14 +497,91 @@ void transdata(int fd1,int fd2)
                 memset(send_out2+totalread2,0,MAXSIZE-totalread2);
             }
             else
+            {
                 memset(send_out2,0,MAXSIZE);
+                FD_CLR(fd1,&writefd);
+            } 
+        }
+
+        if(FD_ISSET(fd2,&writefd))
+        {
+            int err=0;
+            sendcount1=0;
+            while(totalread1>0)
+            {
+                send1=write(fd2,send_out1+sendcount1,totalread1);
+                if(send1==0)break;
+                if((send1<0) && (errno!=EINTR))
+                {
+                    perror("unknow error");
+                    err=1;
+                    break;
+                }
+                if((send1<0) && (errno==ENOSPC)) break;
+                sendcount1+=send1;
+                totalread1-=send1;
+            }
+            if(err==1) break;
+            if((totalread1>0) && (sendcount1>0))
+            {
+                /* 移动未发送完的数据到开始 */
+                memcpy(send_out1,send_out1+sendcount1,totalread1);
+                memset(send_out1+totalread1,0,MAXSIZE-totalread1);
+            }
+            else
+            {
+                memset(send_out1,0,MAXSIZE);
+                FD_CLR(fd2,&writefd);
+            }
+        }
+
+        if(FD_ISSET(fd1,&readfd))
+        {
+            /* 不能超过MAXSIZE-totalread1,不然send_out1会溢出 */
+            if(totalread1<MAXSIZE)
+            {
+                read1=read(fd1,read_in1,MAXSIZE-totalread1);
+                if(read1==0) break;
+                if((read1<0) && (errno!=EINTR))
+                {
+                    perror("read data error");
+                    break;
+                }
+                memcpy(send_out1+totalread1,read_in1,read1);
+                makelog(tmpbuf1,strlen(tmpbuf1));
+                makelog(read_in1,read1);
+                totalread1+=read1;
+                memset(read_in1,0,MAXSIZE);
+            }
+            FD_SET(fd2,&writefd);
+        }
+
+        if(FD_ISSET(fd2,&readfd))
+        {
+
+            if(totalread2<MAXSIZE)
+            {
+                read2=read(fd2,read_in2,MAXSIZE-totalread2);
+                if(read2==0)break;
+                if((read2<0) && (errno!=EINTR))
+                {
+                    perror("read data error");
+                    break;
+                }
+                memcpy(send_out2+totalread2,read_in2,read2);
+                makelog(tmpbuf2,strlen(tmpbuf2));
+                makelog(read_in2,read2);
+                totalread2+=read2;
+                memset(read_in2,0,MAXSIZE);
+            }
+            FD_SET(fd1,&writefd);
         }
     }
 
     close(fd1);
     close(fd2);
     printf("ok,I closed the two fd\r\n");
-    //exit(0);
+    exit(0);
 }
 
 void closeallfd(int n)
