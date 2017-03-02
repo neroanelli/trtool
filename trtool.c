@@ -37,6 +37,9 @@
 #define MAXSIZE 10240
 #define HOSTLEN 40
 #define CONNECT_NUMBER 5
+#ifndef SIGCLD
+#   define SIGCLD SIGCHLD
+#endif
 
 /* define function here */
 void usage(char *s);
